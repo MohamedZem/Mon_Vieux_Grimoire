@@ -1,6 +1,18 @@
 const Book = require('../models/Books');
 const fs = require('fs');
 
+function normalizeText(value = '') {
+  return String(value).trim().replace(/\s+/g, ' ');
+}
+
+function escapeRegex(value = '') {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function exactCaseInsensitiveRegex(value = '') {
+  return new RegExp(`^${escapeRegex(value)}$`, 'i');
+}
+
 // Création d'un nouveau livre.
 exports.createBook = (req, res, next) => {
      try {
@@ -11,14 +23,17 @@ exports.createBook = (req, res, next) => {
     };
     // Les données du livre arrivent sous forme de chaîne JSON via FormData.
     const bookObject = JSON.parse(req.body.book);
+    const cleanTitle = normalizeText(bookObject.title);
+    const cleanAuthor = normalizeText(bookObject.author);
+    const cleanYear = Number(bookObject.year);
     // Supprime les propriétés _id et _userId du livre pour éviter les conflits avec la base de données.
     delete bookObject._id;
     delete bookObject._userId;
     // Vérifie si un livre avec le même titre, auteur et année existe déjà pour éviter les doublons.
     Book.findOne({
-      title: bookObject.title.trim(),
-      author: bookObject.author.trim(),
-      year: bookObject.year
+      title: exactCaseInsensitiveRegex(cleanTitle),
+      author: exactCaseInsensitiveRegex(cleanAuthor),
+      year: cleanYear
     })
       .then(existingBook => {
         if (existingBook) {
@@ -34,9 +49,9 @@ exports.createBook = (req, res, next) => {
     // // Création du document Book avec les données nettoyées.    
     const book = new Book({
         ...bookObject,
-        title: bookObject.title.trim(),
-        author: bookObject.author.trim(),
-        year: bookObject.year,
+      title: cleanTitle,
+      author: cleanAuthor,
+      year: cleanYear,
         userId: req.auth.userId,
         imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
     });
@@ -63,6 +78,9 @@ exports.modifyBook = (req, res, next) => {
         ...JSON.parse(req.body.book),
         imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
     } : { ...req.body };
+    const cleanTitle = normalizeText(bookObject.title);
+    const cleanAuthor = normalizeText(bookObject.author);
+    const cleanYear = Number(bookObject.year);
     // On empêche l'utilisateur de modifier artificiellement l'identifiant du propriétaire.
     delete bookObject._userId;
     Book.findOne({ _id: req.params.id })
@@ -71,9 +89,35 @@ exports.modifyBook = (req, res, next) => {
             if (book.userId != req.auth.userId) {
                 res.status(401).json({ message: 'Non autorisé' });
             } else {
-                Book.updateOne({ _id: req.params.id }, { ...bookObject, _id: req.params.id })
-                    .then(() => res.status(200).json({ message: 'Livre modifié !' }))
-                    .catch(error => res.status(401).json({ error }));
+                Book.findOne({
+                  _id: { $ne: req.params.id },
+                  title: exactCaseInsensitiveRegex(cleanTitle),
+                  author: exactCaseInsensitiveRegex(cleanAuthor),
+                  year: cleanYear
+                })
+                    .then((existingBook) => {
+                      if (existingBook) {
+                        if (req.file) {
+                          fs.unlink(`images/${req.file.filename}`, () => {
+                            res.status(400).json({ message: 'Ce livre existe déjà.' });
+                          });
+                          return;
+                        }
+                        res.status(400).json({ message: 'Ce livre existe déjà.' });
+                        return;
+                      }
+
+                      Book.updateOne({ _id: req.params.id }, {
+                        ...bookObject,
+                        title: cleanTitle,
+                        author: cleanAuthor,
+                        year: cleanYear,
+                        _id: req.params.id
+                      })
+                        .then(() => res.status(200).json({ message: 'Livre modifié !' }))
+                        .catch(error => res.status(401).json({ error }));
+                    })
+                    .catch(error => res.status(400).json({ error }));
             }
         })
         .catch(error => res.status(400).json({ error }));
@@ -140,12 +184,9 @@ exports.rateBook = (req, res, next) => {
       const total = book.ratings.reduce((sum, rating) => sum + rating.grade, 0);
       book.averageRating = total / book.ratings.length;
 
-      return book.save();
-    })
-    .then(updatedBook => {
-      if (updatedBook) {
+      return book.save().then(updatedBook => {
         res.status(200).json(updatedBook);
-      }
+      });
     })
     .catch(error => res.status(400).json({ error }));
 };

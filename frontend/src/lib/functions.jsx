@@ -6,10 +6,15 @@ import styles from '../components/Books/BookItem/BookItem.module.css';
 
 // eslint-disable-next-line import/prefer-default-export
 export function displayStars(rating) {
+  const numericRating = Number(String(rating).replace(',', '.'));
+  const safeRating = Number.isNaN(numericRating) ? 0 : Math.max(0, Math.min(5, numericRating));
+  const roundedToHalf = Math.round(safeRating * 2) / 2;
   const stars = [];
-  for (let i = 0; i < 5; i += 1) {
-    if (i < Math.round(rating)) {
+  for (let i = 1; i < 6; i += 1) {
+    if (roundedToHalf >= i) {
       stars.push(<FontAwesomeIcon key={`full-${i}`} icon={solid('star')} className={styles.full} />);
+    } else if (roundedToHalf === i - 0.5) {
+      stars.push(<FontAwesomeIcon key={`half-${i}`} icon={solid('star-half-stroke')} className={styles.full} />);
     } else {
       stars.push(<FontAwesomeIcon key={`empty-${i}`} icon={solid('star')} className={styles.empty} />);
     }
