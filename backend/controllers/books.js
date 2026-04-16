@@ -13,23 +13,30 @@ function exactCaseInsensitiveRegex(value = '') {
   return new RegExp(`^${escapeRegex(value)}$`, 'i');
 }
 
-// Création d'un nouveau livre.
+/**
+ * Crée un nouveau livre :
+ * - vérifie qu'une image a bien été envoyée
+ * - parse et nettoie les données reçues dans req.body.book
+ * - empêche l'utilisation d'un _id ou d'un _userId fournis par le client
+ * - vérifie qu'un livre équivalent n'existe pas déjà
+ * - supprime l'image uploadée si un doublon est détecté
+ * - enregistre le livre avec l'utilisateur authentifié comme propriétaire
+ */
 exports.createBook = (req, res, next) => {
      try {
-      // Vérifie que le fichier image est présent dans la requête.
+      
     if (!req.file) {
-      // Si aucune image n'est fournie, retourne une erreur.
       return res.status(400).json({ error: 'Image obligatoire' });
     };
-    // Les données du livre arrivent sous forme de chaîne JSON via FormData.
+
     const bookObject = JSON.parse(req.body.book);
     const cleanTitle = normalizeText(bookObject.title);
     const cleanAuthor = normalizeText(bookObject.author);
     const cleanYear = Number(bookObject.year);
-    // Supprime les propriétés _id et _userId du livre pour éviter les conflits avec la base de données.
+    
     delete bookObject._id;
     delete bookObject._userId;
-    // Vérifie si un livre avec le même titre, auteur et année existe déjà pour éviter les doublons.
+    
     Book.findOne({
       title: exactCaseInsensitiveRegex(cleanTitle),
       author: exactCaseInsensitiveRegex(cleanAuthor),
@@ -37,16 +44,13 @@ exports.createBook = (req, res, next) => {
     })
       .then(existingBook => {
         if (existingBook) {
-          // Si un livre similaire existe déjà, Affiche un message d'erreur indiquant que le livre existe déjà, en précisant si c'est l'utilisateur qui a déjà ajouté ce livre ou si c'est un autre utilisateur.
-          // supprime l'image téléchargée pour éviter les fichiers inutiles. 
           const message = existingBook.userId === req.auth.userId
             ? 'Vous avez déjà ajouté ce livre.'
             : 'Ce livre existe déjà.';
           return fs.unlink(`images/${req.file.filename}`, () => {
             res.status(400).json({ message });
           });
-        }
-    // // Création du document Book avec les données nettoyées.    
+        }    
     const book = new Book({
         ...bookObject,
       title: cleanTitle,
@@ -55,24 +59,36 @@ exports.createBook = (req, res, next) => {
         userId: req.auth.userId,
         imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
     });
-    // Enregistre le livre dans la base de données et retourne une réponse de succès.
+    
      return book.save()
         .then(() => res.status(201).json({ message: 'Livre enregistré !' }))
 })
         .catch(error => res.status(400).json({ error }));
 } catch (error) {
-  // Erreur lors de la création du livre.
-      return res.status(400).json({ error: 'Payload invalide (book/image)' });
+    return res.status(400).json({ error: 'Payload invalide (book/image)' });
   }
 };
-// Récupère un livre spécifique par son ID.
+
+/**
+ * Récupère un livre à partir de son identifiant.
+ * Retourne le document trouvé ou une erreur 404 si aucun livre ne correspond.
+ */
 exports.getOneBook = (req, res, next) => {
-    // Récupère un livre spécifique par son ID.
     Book.findOne({ _id: req.params.id })
         .then(book => res.status(200).json(book))
         .catch(error => res.status(404).json({ error }));
 };
-// Modifie un livre existant.
+
+/**
+ * Modifie un livre existant :
+ * - reconstruit les données du livre selon qu'une nouvelle image est fournie ou non
+ * - nettoie les champs titre, auteur et année
+ * - interdit la modification du propriétaire via _userId
+ * - vérifie que l'utilisateur connecté est bien le propriétaire du livre
+ * - contrôle qu'aucun autre livre identique n'existe déjà
+ * - supprime la nouvelle image uploadée si la modification crée un doublon
+ * - met à jour le livre en base avec les données nettoyées
+ */
 exports.modifyBook = (req, res, next) => {
     const bookObject = req.file ? {
         ...JSON.parse(req.body.book),
@@ -81,11 +97,10 @@ exports.modifyBook = (req, res, next) => {
     const cleanTitle = normalizeText(bookObject.title);
     const cleanAuthor = normalizeText(bookObject.author);
     const cleanYear = Number(bookObject.year);
-    // On empêche l'utilisateur de modifier artificiellement l'identifiant du propriétaire.
+  
     delete bookObject._userId;
     Book.findOne({ _id: req.params.id })
         .then((book) => {
-          // Vérification que l'utilisateur connecté est bien le propriétaire du livre.
             if (book.userId != req.auth.userId) {
                 res.status(401).json({ message: 'Non autorisé' });
             } else {
@@ -123,16 +138,20 @@ exports.modifyBook = (req, res, next) => {
         .catch(error => res.status(400).json({ error }));
 };
 
-// Supprime un livre existant.
+/**
+ * Supprime un livre existant :
+ * - vérifie que l'utilisateur connecté est le propriétaire du livre
+ * - extrait le nom du fichier image depuis l'URL stockée en base
+ * - supprime d'abord l'image du dossier local
+ * - supprime ensuite le livre correspondant dans la base de données
+ */
 exports.deleteBook = (req, res, next) => {
     Book.findOne({ _id: req.params.id })
         .then(book => {
             if (book.userId != req.auth.userId) {
                 res.status(401).json({ message: 'Non autorisé' });
             } else {
-              // // Récupération du nom de fichier à partir de l'URL complète de l'image.
                 const filename = book.imageUrl.split('/images/')[1];
-                // Supprime le fichier image associé au livre avant de supprimer le document du livre de la base de données.
                 fs.unlink(`images/${filename}`, () => {
                     Book.deleteOne({ _id: req.params.id })
                         .then(() => res.status(200).json({ message: 'Livre supprimé !' }))
@@ -142,13 +161,20 @@ exports.deleteBook = (req, res, next) => {
         })
         .catch(error => res.status(500).json({ error }));
 };
-// Récupère tous les livres.
+/**
+ * Récupère tous les livres présents en base.
+ * Retourne la liste complète sans filtrage.
+ */
 exports.getAllBooks = (req, res, next) => {
     Book.find()
         .then(books => res.status(200).json(books))
         .catch(error => res.status(400).json({ error }));
 };
-// Récupère les 3 livres les mieux notés.
+
+/**
+ * Récupère les 3 livres ayant la meilleure note moyenne.
+ * Les résultats sont triés par averageRating décroissant puis limités à 3.
+ */
 exports.getBestRatedBooks = (req, res, next) => {
   Book.find()
     .sort({ averageRating: -1 })
@@ -156,11 +182,21 @@ exports.getBestRatedBooks = (req, res, next) => {
     .then(books => res.status(200).json(books))
     .catch(error => res.status(400).json({ error }));
 };
-// Permet à un utilisateur de noter un livre.
+
+/**
+ * Ajoute une note à un livre :
+ * - récupère l'utilisateur authentifié et la note envoyée
+ * - vérifie que la note est un entier entre 0 et 5
+ * - charge le livre concerné
+ * - empêche un même utilisateur de noter plusieurs fois le même livre
+ * - ajoute la nouvelle note dans le tableau ratings
+ * - recalcule la moyenne globale averageRating
+ * - enregistre puis retourne le livre mis à jour
+ */
 exports.rateBook = (req, res, next) => {
   const userId = req.auth.userId;
   const grade = Number(req.body.rating);
-  // Vérifie que la note est un entier compris entre 0 et 5.
+  
   if (!Number.isInteger(grade) || grade < 0 || grade > 5) {
     return res.status(400).json({ message: 'La note doit être comprise entre 0 et 5 étoiles.' });
   }
@@ -170,17 +206,14 @@ exports.rateBook = (req, res, next) => {
       if (!book) {
         return res.status(404).json({ message: 'Livre introuvable' });
       }
-      // Vérifie si l'utilisateur a déjà noté ce livre pour éviter les notes multiples.
       const alreadyRated = book.ratings.find(rating => rating.userId === userId);
       if (alreadyRated) {
         return res.status(400).json({ message: 'Livre déjà noté par cet utilisateur' });
       }
-      // Ajoute la nouvelle note.
       book.ratings.push({
         userId,
         grade
       });
-      // Recalcule la note moyenne.
       const total = book.ratings.reduce((sum, rating) => sum + rating.grade, 0);
       book.averageRating = total / book.ratings.length;
 
