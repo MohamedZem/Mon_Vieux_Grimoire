@@ -1,12 +1,18 @@
 const express = require('express');
+
 const path = require('path');
+
 require('dotenv').config();
+
 const mongoose = require('mongoose');
+
 // Création de l'application Express
 const app = express();
+
 // Importation des routes pour les livres et les utilisateurs
 const booksRoutes = require('./routes/books');
 const userRoutes = require('./routes/user');
+
 // Connexion à la base de données MongoDB Atlas avec gestion des promesses pour afficher les messages de succès ou d'erreur
 mongoose.connect(
   `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.o5gpsre.mongodb.net/${process.env.DB_NAME}?retryWrites=true&w=majority`
