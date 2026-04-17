@@ -20,7 +20,7 @@ function exactCaseInsensitiveRegex(value = '') {
  * - empêche l'utilisation d'un _id ou d'un _userId fournis par le client
  * - vérifie qu'un livre équivalent n'existe pas déjà
  * - supprime l'image uploadée si un doublon est détecté
- * - enregistre le livre avec l'utilisateur authentifié comme propriétaire
+ * - enregistre le livre avec l'URL de l'image compressée
  */
 exports.createBook = (req, res, next) => {
      try {
@@ -47,7 +47,10 @@ exports.createBook = (req, res, next) => {
           const message = existingBook.userId === req.auth.userId
             ? 'Vous avez déjà ajouté ce livre.'
             : 'Ce livre existe déjà.';
-          return fs.unlink(`images/${req.file.filename}`, () => {
+
+          const imagePath = path.join('images', req.processedImageFilename);
+
+          return fs.unlink(imagePath, () => {
             res.status(400).json({ message });
           });
         }    
@@ -56,8 +59,8 @@ exports.createBook = (req, res, next) => {
       title: cleanTitle,
       author: cleanAuthor,
       year: cleanYear,
-        userId: req.auth.userId,
-        imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
+      userId: req.auth.userId,
+      imageUrl: req.processedImageFilename
     });
     
      return book.save()
@@ -90,54 +93,89 @@ exports.getOneBook = (req, res, next) => {
  * - met à jour le livre en base avec les données nettoyées
  */
 exports.modifyBook = (req, res, next) => {
-    const bookObject = req.file ? {
+  const bookObject = req.file
+    ? {
         ...JSON.parse(req.body.book),
-        imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
-    } : { ...req.body };
-    const cleanTitle = normalizeText(bookObject.title);
-    const cleanAuthor = normalizeText(bookObject.author);
-    const cleanYear = Number(bookObject.year);
-  
-    delete bookObject._userId;
-    Book.findOne({ _id: req.params.id })
-        .then((book) => {
-            if (book.userId != req.auth.userId) {
-                res.status(401).json({ message: 'Non autorisé' });
-            } else {
-                Book.findOne({
-                  _id: { $ne: req.params.id },
-                  title: exactCaseInsensitiveRegex(cleanTitle),
-                  author: exactCaseInsensitiveRegex(cleanAuthor),
-                  year: cleanYear
-                })
-                    .then((existingBook) => {
-                      if (existingBook) {
-                        if (req.file) {
-                          fs.unlink(`images/${req.file.filename}`, () => {
-                            res.status(400).json({ message: 'Ce livre existe déjà.' });
-                          });
-                          return;
-                        }
-                        res.status(400).json({ message: 'Ce livre existe déjà.' });
-                        return;
-                      }
+        imageUrl: req.processedImageFilename
+      }
+    : { ...req.body };
 
-                      Book.updateOne({ _id: req.params.id }, {
-                        ...bookObject,
-                        title: cleanTitle,
-                        author: cleanAuthor,
-                        year: cleanYear,
-                        _id: req.params.id
-                      })
-                        .then(() => res.status(200).json({ message: 'Livre modifié !' }))
-                        .catch(error => res.status(401).json({ error }));
-                    })
-                    .catch(error => res.status(400).json({ error }));
+  const cleanTitle = normalizeText(bookObject.title);
+  const cleanAuthor = normalizeText(bookObject.author);
+  const cleanYear = Number(bookObject.year);
+
+  delete bookObject._userId;
+
+  Book.findOne({ _id: req.params.id })
+    .then((book) => {
+      if (book.userId != req.auth.userId) {
+        if (req.file) {
+          fs.unlink(`images/${req.processedImageFilename}`, () => {});
+        }
+        return res.status(401).json({ message: 'Non autorisé' });
+      }
+
+      Book.findOne({
+        _id: { $ne: req.params.id },
+        title: exactCaseInsensitiveRegex(cleanTitle),
+        author: exactCaseInsensitiveRegex(cleanAuthor),
+        year: cleanYear
+      })
+        .then((existingBook) => {
+          if (existingBook) {
+            if (req.file) {
+              fs.unlink(`images/${req.processedImageFilename}`, () => {
+                res.status(400).json({ message: 'Ce livre existe déjà.' });
+              });
+              return;
             }
-        })
-        .catch(error => res.status(400).json({ error }));
-};
+            return res.status(400).json({ message: 'Ce livre existe déjà.' });
+          }
 
+          const oldFilename = book.imageUrl.split('/images/')[1];
+
+          Book.updateOne(
+            { _id: req.params.id },
+            {
+              ...bookObject,
+              title: cleanTitle,
+              author: cleanAuthor,
+              year: cleanYear,
+              _id: req.params.id
+            }
+          )
+            .then(() => {
+              if (req.file) {
+                fs.unlink(`images/${oldFilename}`, (err) => {
+                  if (err) {
+                    console.log('Erreur suppression ancienne image :', err);
+                  }
+                });
+              }
+
+              res.status(200).json({ message: 'Livre modifié !' });
+            })
+            .catch((error) => {
+              if (req.file) {
+                fs.unlink(`images/${req.processedImageFilename}`, () => {});
+              }
+              res.status(401).json({ error });
+            });
+        })
+        .catch((error) => {
+          if (req.file) {
+            fs.unlink(`images/${req.processedImageFilename}`, () => {});
+          }
+          res.status(400).json({ error });
+        });
+    })
+    .catch((error) => {
+      if (req.file) {
+        fs.unlink(`images/${req.processedImageFilename}`, () => {});
+      }
+      res.status(400).json({ error });
+    });
+};
 /**
  * Supprime un livre existant :
  * - vérifie que l'utilisateur connecté est le propriétaire du livre

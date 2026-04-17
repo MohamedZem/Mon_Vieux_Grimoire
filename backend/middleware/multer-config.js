@@ -4,21 +4,32 @@ const multer = require('multer');
 const MIME_TYPES = {
   'image/jpg': 'jpg',
   'image/jpeg': 'jpg',
-  'image/png': 'png'
+  'image/png': 'png',
+  'images/webp': 'webp'
 };
 
-// Configuration du stockage des fichiers avec Multer
-const storage = multer.diskStorage({
-  destination: (req, file, callback) => {
-    callback(null, 'images');
-  },
-  
-  // Définit le nom du fichier enregistré : nom d'origine sans espaces + timestamp pour éviter les doublons + extension
-  filename: (req, file, callback) => {
-    const name = file.originalname.split(' ').join('_');
-    const extension = MIME_TYPES[file.mimetype];
-    callback(null, name + Date.now() + '.' + extension);
-  }
-});
+/**
+ * Stockage en mémoire :
+ * Multer place alors le fichier dans req.file.buffer
+ * au lieu de l’écrire directement sur le disque.
+ */
+const storage = multer.memoryStorage();
 
-module.exports = multer({ storage }).single('image');
+ const fileFilter = (req, file, callback) => {
+    if (MIME_TYPES[file.mimetype]) {
+      callback(null, true);
+    } else {
+      callback(
+        new Error('Type de fichier non autorisé. Formats acceptés : jpg, jpeg, png, webp'),
+        false
+      );
+    }
+};
+
+module.exports = multer({
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: 15 * 1024 * 1024 // 5 Mo max
+  }
+}).single('image');
