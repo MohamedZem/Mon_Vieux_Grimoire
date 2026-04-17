@@ -1,11 +1,12 @@
 import axios from 'axios';
-import { API_ROUTES } from '../utils/constants';
+import { API_ROUTES, API_URL } from '../utils/constants';
 
 function formatBooks(bookArray) {
   return bookArray.map((book) => {
     const newBook = { ...book };
     // eslint-disable-next-line no-underscore-dangle
     newBook.id = newBook._id;
+    newBook.imageUrl = `${API_URL}/images/${newBook.imageUrl}`;
     return newBook;
   });
 }
@@ -58,6 +59,7 @@ export async function getBook(id) {
     const book = response.data;
     // eslint-disable-next-line no-underscore-dangle
     book.id = book._id;
+    book.imageUrl = `${API_URL}/images/${book.imageUrl}`;
     return book;
   } catch (err) {
     console.error(err);
