@@ -5,16 +5,21 @@ const MIME_TYPES = {
   'image/jpg': 'jpg',
   'image/jpeg': 'jpg',
   'image/png': 'png',
-  'images/webp': 'webp'
+  'image/webp': 'webp'
 };
 
 /**
  * Stockage en mémoire :
- * Multer place alors le fichier dans req.file.buffer
+ * Multer place le fichier dans req.file.buffer
  * au lieu de l’écrire directement sur le disque.
  */
 const storage = multer.memoryStorage();
 
+/**
+ * Filtre des fichiers :
+ * - vérifie que le type MIME est autorisé
+ * - accepte ou rejette le fichier en conséquence
+ */
  const fileFilter = (req, file, callback) => {
     if (MIME_TYPES[file.mimetype]) {
       callback(null, true);
@@ -26,6 +31,13 @@ const storage = multer.memoryStorage();
     }
 };
 
+/**
+ * Export du middleware multer :
+ * - stockage en mémoire
+ * - filtrage des fichiers
+ * - limitation de la taille (15 Mo max)
+ * - attente d’un seul fichier nommé "image"
+ */
 module.exports = multer({
   storage,
   fileFilter,

@@ -1,5 +1,6 @@
 const Book = require('../models/Books');
 const fs = require('fs');
+const path = require('path');
 
 function normalizeText(value = '') {
   return String(value).trim().replace(/\s+/g, ' ');
@@ -20,7 +21,7 @@ function exactCaseInsensitiveRegex(value = '') {
  * - empêche l'utilisation d'un _id ou d'un _userId fournis par le client
  * - vérifie qu'un livre équivalent n'existe pas déjà
  * - supprime l'image uploadée si un doublon est détecté
- * - enregistre le livre avec l'URL de l'image compressée
+ * - enregistre le livre avec l'utilisateur authentifié comme propriétaire
  */
 exports.createBook = (req, res, next) => {
      try {
@@ -89,14 +90,15 @@ exports.getOneBook = (req, res, next) => {
  * - interdit la modification du propriétaire via _userId
  * - vérifie que l'utilisateur connecté est bien le propriétaire du livre
  * - contrôle qu'aucun autre livre identique n'existe déjà
- * - supprime la nouvelle image uploadée si la modification crée un doublon
+ * - supprime la nouvelle image uploadée si la modification est refusée
  * - met à jour le livre en base avec les données nettoyées
+ * * - supprime l'ancienne image si une nouvelle a bien été validée
  */
 exports.modifyBook = (req, res, next) => {
   const bookObject = req.file
     ? {
         ...JSON.parse(req.body.book),
-        imageUrl: req.processedImageFilename
+        imageUrl: `${req.protocol}://${req.get('host')}/images/${filename}`
       }
     : { ...req.body };
 
@@ -211,7 +213,7 @@ exports.getAllBooks = (req, res, next) => {
 
 /**
  * Récupère les 3 livres ayant la meilleure note moyenne.
- * Les résultats sont triés par averageRating décroissant puis limités à 3.
+ * Les résultats sont triés par moyenne décroissante.
  */
 exports.getBestRatedBooks = (req, res, next) => {
   Book.find()

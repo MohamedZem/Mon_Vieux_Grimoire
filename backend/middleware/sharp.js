@@ -4,7 +4,7 @@ const path = require('path');
 
 /**
  * Middleware de compression d'image.
- * - lit le fichier reçu par Multer depuis req.file.buffer
+ * - récupère l’image envoyée via Multer (stockée en mémoire dans req.file.buffer)
  * - redimensionne l'image si nécessaire
  * - convertit l'image en WebP
  * - enregistre le fichier compressé dans /images

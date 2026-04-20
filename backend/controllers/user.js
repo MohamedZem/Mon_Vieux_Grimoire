@@ -5,7 +5,7 @@ const User = require('../models/User');
 /**
  * Inscription d’un nouvel utilisateur :
  * - récupère l’email et le mot de passe envoyés dans la requête
- * - chiffre le mot de passe avec bcrypt
+ * - hache le mot de passe avec bcrypt
  * - crée un nouvel utilisateur avec le mot de passe sécurisé
  * - enregistre l’utilisateur en base de données
  * - retourne une réponse de succès ou d’erreur
