@@ -20,15 +20,44 @@ export function getFromLocalStorage(item) {
   return localStorage.getItem(item);
 }
 
+function isTokenExpired(token) {
+  try {
+    // On récupère le payload du JWT
+    const payload = JSON.parse(atob(token.split('.')[1]));
+
+    // Vérifie si la date d'expiration est dépassée
+    return payload.exp * 1000 < Date.now();
+  } catch (error) {
+    // Si erreur → token invalide
+    return true;
+  }
+}
+
 export async function getAuthenticatedUser() {
   const defaultReturnObject = { authenticated: false, user: null };
+
   try {
     const token = getFromLocalStorage('token');
     const userId = getFromLocalStorage('userId');
+
+    // Si pas de token → pas connecté
     if (!token) {
       return defaultReturnObject;
     }
-    return { authenticated: true, user: { userId, token } };
+
+    // Si token expiré → on nettoie et on déconnecte
+    if (isTokenExpired(token)) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('userId');
+
+      return defaultReturnObject;
+    }
+
+    // Token valide → utilisateur connecté
+    return {
+      authenticated: true,
+      user: { userId, token },
+    };
   } catch (err) {
     console.error('getAuthenticatedUser, Something Went Wrong', err);
     return defaultReturnObject;

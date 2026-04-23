@@ -98,7 +98,7 @@ exports.modifyBook = (req, res, next) => {
   const bookObject = req.file
     ? {
         ...JSON.parse(req.body.book),
-        imageUrl: `${req.protocol}://${req.get('host')}/images/${filename}`
+        imageUrl: req.processedImageFilename,
       }
     : { ...req.body };
 
@@ -112,7 +112,7 @@ exports.modifyBook = (req, res, next) => {
     .then((book) => {
       if (book.userId != req.auth.userId) {
         if (req.file) {
-          fs.unlink(`images/${req.processedImageFilename}`, () => {});
+          fs.unlink(path.join('images', req.processedImageFilename), () => {});
         }
         return res.status(401).json({ message: 'Non autorisé' });
       }
@@ -121,12 +121,12 @@ exports.modifyBook = (req, res, next) => {
         _id: { $ne: req.params.id },
         title: exactCaseInsensitiveRegex(cleanTitle),
         author: exactCaseInsensitiveRegex(cleanAuthor),
-        year: cleanYear
+        year: cleanYear,
       })
         .then((existingBook) => {
           if (existingBook) {
             if (req.file) {
-              fs.unlink(`images/${req.processedImageFilename}`, () => {
+              fs.unlink(path.join('images', req.processedImageFilename), () => {
                 res.status(400).json({ message: 'Ce livre existe déjà.' });
               });
               return;
@@ -134,7 +134,7 @@ exports.modifyBook = (req, res, next) => {
             return res.status(400).json({ message: 'Ce livre existe déjà.' });
           }
 
-          const oldFilename = book.imageUrl.split('/images/')[1];
+          const oldImagePath = path.join('images', book.imageUrl);
 
           Book.updateOne(
             { _id: req.params.id },
@@ -143,12 +143,12 @@ exports.modifyBook = (req, res, next) => {
               title: cleanTitle,
               author: cleanAuthor,
               year: cleanYear,
-              _id: req.params.id
+              _id: req.params.id,
             }
           )
             .then(() => {
               if (req.file) {
-                fs.unlink(`images/${oldFilename}`, (err) => {
+                fs.unlink(oldImagePath, (err) => {
                   if (err) {
                     console.log('Erreur suppression ancienne image :', err);
                   }
@@ -159,21 +159,21 @@ exports.modifyBook = (req, res, next) => {
             })
             .catch((error) => {
               if (req.file) {
-                fs.unlink(`images/${req.processedImageFilename}`, () => {});
+                fs.unlink(path.join('images', req.processedImageFilename), () => {});
               }
               res.status(401).json({ error });
             });
         })
         .catch((error) => {
           if (req.file) {
-            fs.unlink(`images/${req.processedImageFilename}`, () => {});
+            fs.unlink(path.join('images', req.processedImageFilename), () => {});
           }
           res.status(400).json({ error });
         });
     })
     .catch((error) => {
       if (req.file) {
-        fs.unlink(`images/${req.processedImageFilename}`, () => {});
+        fs.unlink(path.join('images', req.processedImageFilename), () => {});
       }
       res.status(400).json({ error });
     });
@@ -190,16 +190,19 @@ exports.deleteBook = (req, res, next) => {
         .then(book => {
             if (book.userId != req.auth.userId) {
                 res.status(401).json({ message: 'Non autorisé' });
-            } else {
-                const filename = book.imageUrl.split('/images/')[1];
-                fs.unlink(`images/${filename}`, () => {
-                    Book.deleteOne({ _id: req.params.id })
-                        .then(() => res.status(200).json({ message: 'Livre supprimé !' }))
-                        .catch(error => res.status(401).json({ error }));
-                });
             }
-        })
-        .catch(error => res.status(500).json({ error }));
+              const imagePath = path.join('images', book.imageUrl);
+              fs.unlink(imagePath, (err) => {
+                if (err) {
+                  console.log('Erreur suppression image :', err);
+                }
+
+                Book.deleteOne({ _id: req.params.id })
+                .then(() => res.status(200).json({ message: 'Livre supprimé !' }))
+                .catch(error => res.status(401).json({ error }));
+            });
+          })
+      .catch(error => res.status(500).json({ error }));
 };
 /**
  * Récupère tous les livres présents en base.
