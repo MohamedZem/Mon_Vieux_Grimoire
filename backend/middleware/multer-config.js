@@ -35,13 +35,13 @@ const storage = multer.memoryStorage();
  * Export du middleware multer :
  * - stockage en mémoire
  * - filtrage des fichiers
- * - limitation de la taille (15 Mo max)
+ * - limitation de la taille (10 Mo max)
  * - attente d’un seul fichier nommé "image"
  */
 module.exports = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 15 * 1024 * 1024 // 5 Mo max
+    fileSize: 10 * 1024 * 1024 // 10 Mo max
   }
 }).single('image');
