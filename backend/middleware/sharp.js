@@ -30,7 +30,7 @@ module.exports = async (req, res, next) => {
     const outputPath = path.join(imagesDir, filename);
 
     await sharp(req.file.buffer)
-      .resize(400, 400, {
+      .resize(500, 500, {
         fit: 'inside',
         withoutEnlargement: true
       })
