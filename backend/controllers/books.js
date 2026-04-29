@@ -189,7 +189,7 @@ exports.deleteBook = (req, res, next) => {
     Book.findOne({ _id: req.params.id })
         .then(book => {
             if (book.userId != req.auth.userId) {
-                res.status(401).json({ message: 'Non autorisé' });
+              return res.status(401).json({ message: 'Non autorisé' });
             }
               const imagePath = path.join('images', book.imageUrl);
               fs.unlink(imagePath, (err) => {
