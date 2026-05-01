@@ -33,8 +33,9 @@ Mon Vieux Grimoire est une application web permettant aux utilisateurs de :
 ## Installation
 
 
-git clone <url-du-repo> 
-cd Mon-Vieux-Grimoire
+git clone https://github.com/MohamedZem/Mon_Vieux_Grimoire.git
+
+cd Mon_Vieux_Grimoire
 
 Ouvrir **deux terminaux séparés**.
 
@@ -42,7 +43,7 @@ cd backend
 npm install
 
 cd frontend
-npm minstall
+npm install
 ```
 
 ---
