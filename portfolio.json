@@ -1,0 +1,9 @@
+{
+  "title": "Mon Vieux Grimoire",
+  "description": "API sécurisée avec Node.js, Express, MongoDB et authentification JWT.",
+  "technologies": ["Node.js", "Express", "MongoDB", "JWT"],
+  "image": "assets/preview.png",
+  "demoUrl": "",
+  "featured": true,
+  "category": "Backend"
+}
