@@ -3,6 +3,7 @@
   "description": "API sécurisée avec Node.js, Express, MongoDB et authentification JWT.",
   "technologies": ["Node.js", "Express", "MongoDB", "JWT"],
   "image": "assets/mon-vieux-grimoire.png",
+  "logo": "assets/logo.png",
   "demoUrl": "",
   "featured": true,
   "category": "Backend"
