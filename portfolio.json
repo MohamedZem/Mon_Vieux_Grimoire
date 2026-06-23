@@ -1,10 +1,57 @@
 {
   "title": "Mon Vieux Grimoire",
   "description": "API sécurisée avec Node.js, Express, MongoDB et authentification JWT.",
-  "technologies": ["Node.js", "Express", "MongoDB", "JWT"],
+    "technologies": [
+    "Node.js",
+    "Express",
+    "MongoDB",
+    "Mongoose",
+    "JWT",
+    "Bcrypt",
+    "Multer",
+    "Sharp"
+  ],
   "image": "assets/mon-vieux-grimoire.png",
+  "gallery": [
+    "assets/home.png",
+    "assets/login.png",
+    "assets/book.png",
+    "assets/add-book.png"
+    ],
   "logo": "assets/logo.png",
   "demoUrl": "",
   "featured": true,
-  "category": "Backend"
+  "category": "Backend",
+  "context": "Développement d'une API REST sécurisée permettant la gestion de livres et l'authentification des utilisateurs dans le cadre de la formation OpenClassrooms.",
+
+  "objectives": [
+    "Développer une API REST sécurisée.",
+    "Mettre en place une authentification JWT.",
+    "Créer les opérations CRUD sur les livres.",
+    "Optimiser les images avec Sharp."
+  ],
+
+  "skills": [
+    "Architecture MVC",
+    "Express",
+    "MongoDB",
+    "Mongoose",
+    "JWT",
+    "Multer",
+    "Sharp",
+    "Bcrypt"
+  ],
+
+  "results": [
+    "API REST fonctionnelle.",
+    "Authentification sécurisée.",
+    "Gestion des livres et des notes.",
+    "Compression automatique des images."
+  ],
+
+  "improvements": [
+    "Ajouter Swagger.",
+    "Mettre en place des tests automatisés.",
+    "Déployer avec Docker."
+  ]
 }
